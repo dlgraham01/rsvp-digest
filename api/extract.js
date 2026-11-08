@@ -1,4 +1,5 @@
 import { fetchLimited } from './_lib/fetch-limited.js'
+import { createLimiter, rejectIfLimited } from './_lib/rate-limit.js'
 import { extractArticle } from './_lib/extract-html.js'
 import { parseArxivId, arxivHtmlUrl, extractArxivHtml } from './_lib/arxiv.js'
 
@@ -28,7 +29,10 @@ export async function extract(rawUrl, deps = {}) {
   return { url: r.url, kind: 'article', ...out }
 }
 
+const limiter = createLimiter({ limit: 30, windowMs: 60_000 })
+
 export default async function handler(req, res) {
+  if (rejectIfLimited(limiter, req, res)) return
   const url = new URL(req.url, 'http://localhost').searchParams.get('url')
   if (!url) return res.status(400).json({ error: 'Missing url parameter' })
   try {

@@ -35,4 +35,5 @@ Import the repo in Vercel; no configuration needed.
 ## Not done yet
 
 - Offline caching / service worker, per-article saved progress
-- Rate limiting on `/api/*` (the endpoints are open to anyone with the URL)
+- A global rate limit: `/api/*` has a best-effort per-IP limit (30/min extract, 10/min pdf) held in
+  memory per serverless instance. For a hard cap, enable Vercel WAF rate limiting or use a shared store.

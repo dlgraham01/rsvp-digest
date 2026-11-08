@@ -1,11 +1,15 @@
 import { fetchLimited } from './_lib/fetch-limited.js'
+import { createLimiter, rejectIfLimited } from './_lib/rate-limit.js'
 
 /**
  * GET /api/pdf?url=<http(s) url>
  * Streams a PDF through the server so the browser can parse it despite CORS.
  * Only responses that are actually PDFs are returned.
  */
+const limiter = createLimiter({ limit: 10, windowMs: 60_000 })
+
 export default async function handler(req, res) {
+  if (rejectIfLimited(limiter, req, res)) return
   const url = new URL(req.url, 'http://localhost').searchParams.get('url')
   if (!url) return res.status(400).json({ error: 'Missing url parameter' })
   try {
