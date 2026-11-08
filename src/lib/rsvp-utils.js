@@ -174,3 +174,36 @@ export function extractWordFrame(allWords, centerIdx, frameSize) {
 
   return { subset, centerOffset };
 }
+
+/**
+ * Word indices (0-based) where each article begins, given the text of each article.
+ * Uses the same whitespace splitting as parseText so indices line up with the word array.
+ * @param {string[]} segments
+ * @returns {number[]}
+ */
+export function computeArticleStarts(segments) {
+  const starts = [];
+  let offset = 0;
+  for (const seg of segments || []) {
+    const n = parseText(seg).length;
+    if (n === 0) continue;
+    starts.push(offset);
+    offset += n;
+  }
+  return starts;
+}
+
+/**
+ * 1-based article number for the word currently on screen (currentWordIndex is 1-based
+ * count of words shown). Returns 0 when there are no article boundaries.
+ * @param {number[]} articleStarts
+ * @param {number} currentWordIndex
+ * @returns {number}
+ */
+export function getArticleNumber(articleStarts, currentWordIndex) {
+  if (!articleStarts || articleStarts.length === 0) return 0;
+  const shown = Math.max(0, currentWordIndex - 1);
+  let n = 0;
+  for (let i = 0; i < articleStarts.length && articleStarts[i] <= shown; i++) n = i + 1;
+  return Math.max(1, n);
+}

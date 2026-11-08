@@ -20,18 +20,20 @@
   import TextInput from './lib/components/TextInput.svelte';
   import SourceBrowser from './lib/components/SourceBrowser.svelte';
   import ProgressBar from './lib/components/ProgressBar.svelte';
-  import { extractWordFrame } from './lib/rsvp-utils.js';
+  import { extractWordFrame, computeArticleStarts, getArticleNumber } from './lib/rsvp-utils.js';
 
   // State
   let frameWordCount = 1;
-  let text = `Rapid serial visual presentation (RSVP) is a scientific method for studying the timing of vision. In RSVP, a sequence of stimuli is shown to an observer at one location in their visual field. This technique has been adapted for speed reading applications, where words are displayed one at a time at a fixed point, eliminating the need for eye movements and potentially increasing reading speed significantly.`;
+  let text = '';
+  let articleStarts = []; // word index where each article begins (digest "read all" mode)
+  let showHelp = false;
   let words = [];
   let currentWordIndex = 0;
   let isPlaying = false;
   let isPaused = false;
   let showSettings = false;
   let showTextInput = false;
-  let showSourceBrowser = false;
+  let showSourceBrowser = true; // landing view is the digest selector
   let progress = 0;
   let isLoadingFile = false;
   let loadingMessage = '';
@@ -60,6 +62,7 @@
   $: wordFrame = extractWordFrame(words, Math.max(0, currentWordIndex - 1), frameWordCount);
   $: timeRemaining = formatTimeRemaining(words.length - currentWordIndex, wordsPerMinute);
   $: isFocusMode = isPlaying || isPaused;
+  $: articleNumber = getArticleNumber(articleStarts, currentWordIndex);
 
   function parseText() {
     words = parseTextUtil(text);
@@ -152,13 +155,16 @@
 
   function handleTextApply(event) {
     text = event.detail.text;
+    articleStarts = [];
     stop();
     parseText();
     showTextInput = false;
   }
 
   function handleSourceLoad(event) {
-    text = event.detail.text;
+    const segments = event.detail.segments || [event.detail.text];
+    text = segments.join('\n\n');
+    articleStarts = computeArticleStarts(segments);
     stop();
     parseText();
     showSourceBrowser = false;
@@ -173,6 +179,7 @@
 
     try {
       text = await parseFile(file);
+      articleStarts = [];
       stop();
       parseText();
       showTextInput = false;
@@ -192,6 +199,7 @@
       text,
       currentWordIndex,
       totalWords: words.length,
+      articleStarts,
       settings: {
         wordsPerMinute,
         fadeEnabled,
@@ -211,6 +219,8 @@
     if (!session) return false;
 
     text = session.text;
+    articleStarts = Array.isArray(session.articleStarts) ? session.articleStarts : [];
+    showSourceBrowser = false;
     parseText();
     currentWordIndex = session.currentWordIndex;
     progress = (currentWordIndex / words.length) * 100;
@@ -274,6 +284,12 @@
   function handleKeydown(e) {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
 
+    if (e.key === '?') {
+      e.preventDefault();
+      showHelp = !showHelp;
+      return;
+    }
+
     switch (e.code) {
       case 'Space':
         e.preventDefault();
@@ -282,7 +298,9 @@
         else start();
         break;
       case 'Escape':
-        if (showJumpTo) {
+        if (showHelp) {
+          showHelp = false;
+        } else if (showJumpTo) {
           showJumpTo = false;
           jumpToValue = '';
         } else if (showSettings || showTextInput) {
@@ -361,8 +379,18 @@
   <!-- Header - hidden during focus mode -->
   {#if !isFocusMode}
     <header>
-      <h1>RSVP Reader</h1>
+      <h1>RSVP Digest</h1>
       <div class="header-actions">
+        <button
+          class="icon-btn"
+          on:click={() => { showSourceBrowser = true; showSettings = false; showTextInput = false; showJumpTo = false; }}
+          title="Browse digest"
+          class:active={showSourceBrowser}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          </svg>
+        </button>
         <button
           class="icon-btn"
           on:click={() => { showJumpTo = !showJumpTo; showSettings = false; showTextInput = false; }}
@@ -402,6 +430,14 @@
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
           </svg>
+        </button>
+        <button
+          class="icon-btn desktop-only"
+          on:click={() => showHelp = !showHelp}
+          title="Keyboard shortcuts (?)"
+          class:active={showHelp}
+        >
+          <span class="help-glyph">?</span>
         </button>
       </div>
     </header>
@@ -477,6 +513,23 @@
     </div>
   {/if}
 
+  {#if showHelp}
+    <div class="panel-overlay" on:click|self={() => showHelp = false} role="presentation">
+      <div class="help-panel">
+        <h3>Keyboard shortcuts</h3>
+        <dl>
+          <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Exit reading</dd>
+          <dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Speed</dd>
+          <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Skip word</dd>
+          <dt><kbd>G</kbd></dt><dd>Jump to position</dd>
+          <dt><kbd>Ctrl+S</kbd></dt><dd>Save progress</dd>
+          <dt><kbd>?</kbd></dt><dd>Show / hide this</dd>
+        </dl>
+      </div>
+    </div>
+  {/if}
+
   {#if showSavedSessionPrompt && savedSessionInfo}
     <div class="panel-overlay">
       <div class="saved-session-panel">
@@ -501,6 +554,8 @@
       {fadeDuration}
       {fadeEnabled}
       multiWordEnabled={frameWordCount > 1}
+      {articleNumber}
+      articleCount={articleStarts.length}
     />
   </div>
 
@@ -532,14 +587,6 @@
     </div>
 
     {#if !isFocusMode}
-      <div class="shortcuts desktop-only">
-        <kbd>Space</kbd> Play
-        <kbd>Esc</kbd> Exit
-        <kbd>↑↓</kbd> Speed
-        <kbd>←→</kbd> Skip
-        <kbd>G</kbd> Jump
-        <kbd>Ctrl+S</kbd> Save
-      </div>
       <div class="touch-controls mobile-only">
         <button class="touch-btn" on:click={() => currentWordIndex = Math.max(0, currentWordIndex - 5)} title="Back 5 words">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -678,12 +725,42 @@
     justify-content: center;
   }
 
-  .shortcuts {
-    display: flex;
-    justify-content: center;
-    gap: 1.5rem;
-    color: #444;
-    font-size: 0.8rem;
+  .help-glyph {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    font-size: 1rem;
+    text-align: center;
+  }
+
+  .help-panel {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 320px;
+    width: 100%;
+  }
+
+  .help-panel h3 {
+    margin: 0 0 1rem 0;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 500;
+  }
+
+  .help-panel dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.6rem 1rem;
+    margin: 0;
+    color: #aaa;
+    font-size: 0.9rem;
+  }
+
+  .help-panel dt,
+  .help-panel dd {
+    margin: 0;
   }
 
   kbd {

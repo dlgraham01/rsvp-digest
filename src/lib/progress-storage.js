@@ -19,6 +19,7 @@ export function saveSession(session) {
       text: session.text,
       currentWordIndex: session.currentWordIndex,
       totalWords: session.totalWords,
+      articleStarts: session.articleStarts || [],
       settings: session.settings,
       savedAt: Date.now()
     };

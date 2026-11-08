@@ -393,3 +393,28 @@ describe('extractWordFrame', () => {
     expect(result.centerOffset).toBe(2)
   })
 })
+
+import { computeArticleStarts, getArticleNumber } from '../lib/rsvp-utils.js'
+
+describe('article boundaries', () => {
+  it('computes the word index where each article starts', () => {
+    expect(computeArticleStarts(['a b c', 'd e', 'f'])).toEqual([0, 3, 5])
+  })
+
+  it('skips empty segments and tolerates missing input', () => {
+    expect(computeArticleStarts(['a b', '  ', 'c'])).toEqual([0, 2])
+    expect(computeArticleStarts(undefined)).toEqual([])
+  })
+
+  it('reports the article for the word on screen', () => {
+    const starts = [0, 3, 5] // words: a b c | d e | f
+    expect(getArticleNumber(starts, 0)).toBe(1)
+    expect(getArticleNumber(starts, 3)).toBe(1) // showing "c"
+    expect(getArticleNumber(starts, 4)).toBe(2) // showing "d"
+    expect(getArticleNumber(starts, 6)).toBe(3) // showing "f"
+  })
+
+  it('returns 0 with no boundaries', () => {
+    expect(getArticleNumber([], 5)).toBe(0)
+  })
+})

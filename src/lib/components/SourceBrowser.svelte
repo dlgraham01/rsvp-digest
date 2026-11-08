@@ -40,10 +40,10 @@
   });
 
   function readSummary(item) {
-    dispatch('load', { text: itemToText(item), title: item.title });
+    dispatch('load', { text: itemToText(item), segments: [itemToText(item)], title: item.title });
   }
   function readAllSummaries() {
-    dispatch('load', { text: dayToText(items), title: `${source.name} ${day}` });
+    dispatch('load', { text: dayToText(items), segments: items.map(itemToText), title: `${source.name} ${day}` });
   }
 
   async function openFull(item, link) {

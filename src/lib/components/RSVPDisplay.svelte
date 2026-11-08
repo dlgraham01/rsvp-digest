@@ -8,6 +8,8 @@
   export let fadeDuration = 150;
   export let fadeEnabled = true;
   export let multiWordEnabled = false;
+  export let articleNumber = 0;
+  export let articleCount = 0;
 
   $: useMultiMode = multiWordEnabled && wordGroup.length > 0;
 
@@ -29,6 +31,11 @@
 </script>
 
 <div class="rsvp-display">
+  {#if articleCount > 1 && articleNumber > 0}
+    <div class="article-badge" aria-label="Article {articleNumber} of {articleCount}">
+      {articleNumber}<span class="of">/{articleCount}</span>
+    </div>
+  {/if}
   <div class="focus-marker">
     <div class="marker-line top"></div>
     <div class="marker-line bottom"></div>
@@ -85,6 +92,21 @@
     justify-content: center;
     flex: 1;
     overflow: hidden;
+  }
+
+  .article-badge {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    font-family: monospace;
+    font-size: 1.1rem;
+    color: #888;
+    z-index: 11;
+  }
+
+  .article-badge .of {
+    color: #444;
+    font-size: 0.8rem;
   }
 
   .focus-marker {
